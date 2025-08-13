@@ -1,15 +1,26 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { getResourceDetails } from "../services/apiService";
+import { getResourceDetails, getCharacteristicById, getAbilityByNameOrId } from "../services/apiService";
 import "../styles/PokemonDetail.css";
 
 const PokemonDetail = () => {
     const { id } = useParams();
     const [pokemon, setPokemon] = useState(null);
+    const [characteristic, setCharacteristic] = useState(null);
+    const [ability, setAbility] = useState(null);
 
     useEffect(() => {
-        getResourceDetails("pokemon", id).then(setPokemon);
+        getResourceDetails("pokemon", id).then(pokeData => {
+            setPokemon(pokeData);
+            if (pokeData && pokeData.id) {
+                getCharacteristicById(pokeData.id).then(setCharacteristic);
+            }
+            if (pokeData && pokeData.abilities && pokeData.abilities[0]) {
+                const abilityName = pokeData.abilities[0].ability.name;
+                getAbilityByNameOrId(abilityName).then(setAbility);
+            }
+        });
     }, [id]);
 
     if (!pokemon) return <p className="text-center mt-5">Cargando...</p>;
@@ -33,7 +44,7 @@ const PokemonDetail = () => {
 
     return (
         <>
-        <div class="container">
+        <div className="container">
             <motion.div
                 className="pokemon-detail-container"
                 initial={{ opacity: 0, scale: 0.8 }}
@@ -73,23 +84,6 @@ const PokemonDetail = () => {
                         </div>
                     ))}
                 </motion.div>
-                <motion.div
-                    className="pokemon-stats"
-                    initial={{ opacity: 0, y: 50 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: 0.6 }}
-                >
-                    <h3>Estadísticas base</h3>
-                    {stats.map((stat, index) => (
-                        <div key={index} className="stat-row">
-                            <span className="stat-name">{stat.name}</span>
-                            <span className="stat-value">{stat.value}</span>
-                            <div className="stat-bar">
-                                <div className="stat-fill" style={{ width: `${(stat.value / 255) * 100}%`, backgroundColor: getStatColor(stat.value) }}></div>
-                            </div>
-                        </div>
-                    ))}
-                </motion.div>
             </motion.div>
 
             <motion.div
@@ -110,12 +104,52 @@ const PokemonDetail = () => {
                 ))}
             </motion.div>
 
+            {characteristic && (
+                <motion.div
+                    className="pokemon-characteristic"
+                    initial={{ opacity: 0, y: 50 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.6 }}
+                >
+                    <h3>Descripción</h3>
+                    <p>{characteristic.descriptions.find(desc => desc.language.name === "es")?.description}</p>
+                    <p><strong>Valores posibles:</strong> {characteristic.possible_values?.join(", ")}</p>
+                    <p><strong>Estadística más alta:</strong> {characteristic.highest_stat?.name}</p>
+                    <p><strong>Módulo genético:</strong> {characteristic.gene_modulo}</p>
+                </motion.div>
+            )}
+
+            {ability && (
+                <motion.div
+                    className="pokemon-ability"
+                    initial={{ opacity: 0, y: 50 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.6 }}
+                >
+                    <h3>Habilidad</h3>
+                    <p><strong>Nombre:</strong> {ability.name}</p>
+                    <p><strong>Efectos:</strong></p>
+                    <ul>
+                    {ability.effect_entries
+                        ?.filter(e => e.language.name === "es" || e.language.name === "en")
+                        .slice(0, 1)
+                        .map((entry, i) => (
+                        <li key={i}>{entry.effect}</li>
+                        ))}
+                    </ul>
+                    <p><strong>Descripciones:</strong></p>
+                    <ul>
+                        {[...new Set(ability.flavor_text_entries
+                            ?.filter(f => f.language.name === "es")
+                            .map(f => f.flavor_text))].map((text, i) => (
+                                <li key={i}>{text}</li>
+                        ))}
+                    </ul>
+                </motion.div>
+            )}
         </div>
-        
         </>
-        
     );
-    
 };
 
 export default PokemonDetail;
