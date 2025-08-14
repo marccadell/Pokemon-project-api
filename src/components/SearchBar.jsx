@@ -7,26 +7,42 @@ const SearchBar = () => {
     const [allPokemon, setAllPokemon] = useState([]);
     const [suggestions, setSuggestions] = useState([]);
     const [error, setError] = useState("");
-    const navigate = useNavigate();
+    const [highlightedIndex, setHighlightedIndex] = useState(-1);
+    const [keyboardActive, setKeyboardActive] = useState(false);
+
     const inputRef = useRef(null);
     const listRef = useRef(null);
-    const [highlightedIndex, setHighlightedIndex] = useState(-1);
+    const navigate = useNavigate();
 
+    useEffect(() => {
+        fetch("https://pokeapi.co/api/v2/pokemon?limit=10000")
+            .then((res) => res.json())
+            .then((data) => setAllPokemon(data.results.map((p) => p.name)))
+            .catch(() => setError("Error al cargar la lista de Pokémon"));
+    }, []);
 
     useEffect(() => {
         setHighlightedIndex(-1);
     }, [query, suggestions]);
 
-
     useEffect(() => {
-        fetch("https://pokeapi.co/api/v2/pokemon?limit=10000")
-            .then(res => res.json())
-            .then(data => setAllPokemon(data.results.map(p => p.name)))
-            .catch(() => setError("Error al cargar la lista de Pokémon"));
-    }, []);
+        const handleMouseMove = () => {
+            if (keyboardActive){
+                setKeyboardActive(false);
+                setHighlightedIndex(-1);
+            }
+        };
+
+        document.addEventListener("mousemove", handleMouseMove);
+        return () => document.removeEventListener("mousemove", handleMouseMove);
+    }, [keyboardActive]);
+
+    const capitalize = (str) => {
+        return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+    };
 
     const handleInputChange = (e) => {
-        const value = e.target.value.toLowerCase();
+        const value = capitalize(e.target.value);
         setQuery(value);
         setError("");
 
@@ -35,12 +51,14 @@ const SearchBar = () => {
             return;
         }
 
-        const filtered = allPokemon.filter(name => name.startsWith(value));
+        const filtered = allPokemon.filter((name) =>
+            name.toLowerCase().startsWith(value.toLowerCase())
+        );
         setSuggestions(filtered.slice(0, 10));
     };
 
     const handleSelect = (name) => {
-        setQuery(name);
+        setQuery(capitalize(name));
         setSuggestions([]);
         setError("");
         navigate(`/pokemon/${name}`);
@@ -48,28 +66,41 @@ const SearchBar = () => {
 
     const handleSearch = (e) => {
         e.preventDefault();
-        if (allPokemon.includes(query)) {
+        const match = allPokemon.find(
+            (p) => p.toLowerCase() === query.toLowerCase()
+        );
+        if (match) {
             setSuggestions([]);
             setError("");
-            navigate(`/pokemon/${query}`);
+            navigate(`/pokemon/${match}`);
         } else {
             setError("No hay ninguna coincidencia.");
         }
     };
 
-    const handleBlur = (e) => {
+    const handleBlur = () => {
         setTimeout(() => {
             setSuggestions([]);
         }, 100);
     };
 
     const handleKeyDown = (e) => {
+        if (!keyboardActive) setKeyboardActive(true);
+
         if (e.key === "ArrowDown") {
             e.preventDefault();
-            setHighlightedIndex(prev => (prev + 1) % suggestions.length);
+            setHighlightedIndex((prev) => {
+                const next = (prev + 1) % suggestions.length;
+                scrollToItem(next);
+                return next;
+            });
         } else if (e.key === "ArrowUp") {
             e.preventDefault();
-            setHighlightedIndex(prev => (prev - 1 + suggestions.length) % suggestions.length);
+            setHighlightedIndex((prev) => {
+                const next = (prev - 1 + suggestions.length) % suggestions.length;
+                scrollToItem(next);
+                return next;
+            });
         } else if (e.key === "Enter") {
             if (highlightedIndex >= 0 && suggestions[highlightedIndex]) {
                 e.preventDefault();
@@ -78,6 +109,15 @@ const SearchBar = () => {
                 e.preventDefault();
                 handleSelect(suggestions[0]);
             }
+        }
+    };
+
+    const scrollToItem = (index) => {
+        if (listRef.current && listRef.current.children[index]) {
+            listRef.current.children[index].scrollIntoView({
+                block: "nearest",
+                behavior: "smooth",
+            });
         }
     };
 
@@ -95,7 +135,9 @@ const SearchBar = () => {
                     className="search-input"
                     autoComplete="off"
                 />
-                <button type="submit" className="search-button">Buscar</button>
+                <button type="submit" className="search-button">
+                    Buscar
+                </button>
             </form>
 
             {suggestions.length > 0 && (
@@ -104,12 +146,14 @@ const SearchBar = () => {
                         <li
                             key={i}
                             onMouseDown={() => handleSelect(name)}
+                            onMouseEnter={() => setKeyboardActive(false)}
                             className={i === highlightedIndex ? "highlighted" : ""}
+                            style={keyboardActive ? { pointerEvents: "none" } : {}}
                         >
-                            {name}
+                            {capitalize(name)}
                         </li>
-                    ))}
 
+                    ))}
                 </ul>
             )}
 

@@ -30,14 +30,24 @@
 }
 
 .suggestions-list li:hover {
-    background-color: #f0f0f0;
-}
-
-.suggestions-list li.highlighted {
     background-color: #d0ebff;
 }
 
+.suggestions-list li.disable-hover:hover {
+    background-color: transparent !important;
+}
 
+.suggestions-list li.highlighted {
+    background-color: #d0ebff !important;
+}
+
+.suggestions-list.hide-cursor {
+    cursor: none !important;
+}
+
+.hide-cursor {
+    cursor: none !important;
+}
 
 .search-button {
     padding: 8px 12px;
